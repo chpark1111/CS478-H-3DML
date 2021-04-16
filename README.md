@@ -1,6 +1,5 @@
 # CSGNet: Neural Shape Parser for Constructive Solid Geometry
-[PaperLink](https://arxiv.org/abs/1712.08290)  
-Implementing CSGNet:  Neural Shape Parser for Constructive Solid Geometry for CS492 Project
+Implementing CSGNet:  Neural Shape Parser for Constructive Solid Geometry for CS492 Project: [PaperLink](https://arxiv.org/abs/1712.08290)  
 
 TimeLine:  
 4/14 ∼ 4/21: Download the datasets and implement data preprocessing, loss function, encoder, decoder for 2D first.  
