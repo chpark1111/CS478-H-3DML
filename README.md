@@ -1,2 +1,3 @@
 # CSGNet: Neural Shape Parser for Constructive Solid Geometry
-[https://github.com/Hippogriff/CSGNet](https://github.com/Hippogriff/CSGNet).
+[PaperLink](https://arxiv.org/abs/1712.08290).
+Implementing CSGNet:  Neural Shape Parser for Constructive Solid Geometry
