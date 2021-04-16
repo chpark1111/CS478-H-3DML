@@ -1,4 +1,4 @@
-comment = "Write some meaningful comments that can be used in future to identify the intents of running this experiment."
+comment = ""
 
 [train]
 model_path = temp{}
