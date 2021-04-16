@@ -2,7 +2,7 @@
 [PaperLink](https://arxiv.org/abs/1712.08290).
 Implementing CSGNet:  Neural Shape Parser for Constructive Solid Geometry for CS492 Project
 
-TimeLine:
+TimeLine:  
 4/14 ∼ 4/21: Download the datasets and implement data preprocessing, loss function, encoder, decoder for 2D first.  
 4/21 ∼ 4/28: Implement Beam search and other utility function.  
 4/28 ∼ 5/12: Implement RL part and join them all together and check accuracy etc.  
