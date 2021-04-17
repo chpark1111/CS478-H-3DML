@@ -24,6 +24,9 @@ class Config(object):
         config = ConfigObj(os.path.join(BASE, '../config/%s'%(self.filename)))
         self.config = config
 
+        # Whether to turn on/off debug(does not make logs when on)
+        self.debug = config.as_bool("debug")
+
         # Comments on the experiments running
         self.comment = config["comment"]
 

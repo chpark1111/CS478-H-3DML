@@ -1,4 +1,5 @@
 comment = ""
+debug = True
 
 [train]
 model_path = temp{}
