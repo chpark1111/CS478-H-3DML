@@ -55,7 +55,6 @@ total_importance = sum(k for k in dataset_sizes.keys())
     
 for k in data_labels_paths.keys():
     test_batch_size = int(config.batch_size * dataset_sizes[k][1] / config.test_size)
-    # Acts as a curriculum learning
     train_batch_size = config.batch_size // types_prog
     train_gen_objs[k] = generator.get_train_data(
         train_batch_size, k,
@@ -67,9 +66,10 @@ for k in data_labels_paths.keys():
         num_test_images=dataset_sizes[k][1],
         jitter_program=True)
 data, labels = next(train_gen_objs[5])
-# data: length of program +1, batch_size, stack_size, canvas(64, 64)
-# lables: 
-print(labels.shape)
+# data: length_of_program + 1, batch_size, stack_size, canvas(64, 64)
+# lables: batch_size, length_of_program + 1
+
+
 '''
 net = CSGmodel().cuda()
 if torch.cuda.is_available():
