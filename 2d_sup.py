@@ -1,4 +1,5 @@
 import logging
+import os
 import numpy as np
 import torch
 import torch.optim as optim
@@ -7,7 +8,10 @@ import tensorboard_logger
 from tensorboard_logger import log_value
 from utils import read_config
 from utils.generators.mixed_len_generator import MixedGenerateData
-#from Model.model import CSGmodel
+from utils.scheduler import LearningRate
+from utils.loss import chamfer, sup_loss
+from utils.train_utils import to_onehot
+from models.model import CSGmodel
 
 #Config parameters, set logging
 config = read_config.Config("2dsup_config.yml")
@@ -15,10 +19,10 @@ config = read_config.Config("2dsup_config.yml")
 model_name = config.model_path.format(config.mode)
 print(config.config, flush=True)
 
+logger = logging.getLogger(__name__)
 if config.debug == False:
     config.write_config("log/configs/{}_config.txt".format(model_name))
     tensorboard_logger.configure("log/tensorboard/{}".format(model_name), flush_secs=5)
-    logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     formatter = logging.Formatter('%(asctime)s:%(name)s:%(message)s')
     file_handler = logging.FileHandler('log/logger/{}.log'.format(model_name), mode='w')
@@ -65,18 +69,61 @@ for k in data_labels_paths.keys():
         num_train_images=dataset_sizes[k][0],
         num_test_images=dataset_sizes[k][1],
         jitter_program=True)
-data, labels = next(train_gen_objs[5])
-# data: length_of_program + 1, batch_size, stack_size, canvas(64, 64)
-# lables: batch_size, length_of_program + 1
 
-
-'''
-net = CSGmodel().cuda()
+net = CSGmodel(config.input_size, config.hidden_size, config.mode, config.encoder_drop, 
+                        config.dropout, config.canvas_shape, len(generator.unique_draw), num_layers=1)
 if torch.cuda.is_available():
-    print('GPU available')
+    print('Using GPU')
     net.cuda()
 
 if config.preload_model:
     print(config.pretrain_modelpath, "Loaded")
     net.load_state_dict(torch.load(config.pretrain_modelpath))
-'''
+
+optimizer = optim.Adam([para for para in net.parameters() if para.requires_grad],
+                            weight_decay=config.weight_decay, lr=config.lr)
+reduce_plat = LearningRate(optimizer, init_lr=config.lr, lr_dacay_fact=0.2,
+                            patience=config.patience, logger=logger)
+
+# Create the output directory.
+if not os.path.exists('trained_models'):
+    os.makedirs('trained_models')
+
+#Training, Testing of supervised learning
+prev_test_loss = 1e20
+prev_test_cd = 1e20
+prev_test_iou = 0
+
+for epoch in range(config.epochs):
+    train_loss = 0.0
+    accuracies = []
+    net.train()
+
+    for batch_idx in range(config.train_size // config.batch_size):
+        optimizer.zero_grad()
+        batch_kloss = 0.0
+        
+        for k in data_labels_paths.keys():
+            # data: length_of_program + 1, batch_size, stack_size, canvas(64, 64)
+            # lables: batch_size, pg_len + 1
+            # len(generator.unique_draw) = num_draws
+            data, labels = next(train_gen_objs[k])
+            data = data[:, :, 0:1, :, :]
+            one_hot_labels = to_onehot(labels, len(generator.unique_draw))
+
+            one_hot_labels = torch.from_numpy(one_hot_labels).cuda()
+            data = torch.from_numpy(data).cuda()
+            labels = torch.from_numpy(labels).cuda()
+
+            outputs = net([data, one_hot_labels, k])
+
+            loss_k = (sup_loss(outputs, labels, time_steps=k + 1) / (k + 1)) / len(data_labels_paths.keys()) 
+            loss_k.backward()
+
+            batch_kloss += loss_k
+        
+        optimizer.step()
+        train_loss += batch_kloss
+        log_value('train_loss_batch', batch_kloss.cpu().numpy(), epoch * (config.train_size //
+                    config.batch_size) + batch_idx)
+        

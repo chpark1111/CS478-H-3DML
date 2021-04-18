@@ -72,8 +72,8 @@ class Decoder(nn.Module):
         return y
 
 class CSGmodel(nn.Module):
-    def __init__(self, input_size, hidden_size, mode=1, num_layers=1, 
-                    enc_drop=0.2, dropout=0.5, num_draws=400, canvas_shape=[64, 64]):
+    def __init__(self, input_size, hidden_size, mode=1, enc_drop=0.2, 
+                dropout=0.5, canvas_shape=[64, 64], num_draws=400, num_layers=1):
         super(CSGmodel, self).__init__()
         self.encoder = Encoder(enc_drop)
         self.decoder = Decoder(input_size, hidden_size, mode, num_layers, dropout, num_draws)
@@ -85,11 +85,10 @@ class CSGmodel(nn.Module):
         self.num_draws = num_draws
         self.canvas_shape = canvas_shape
 
-        
     def forward(self, x: List):
         """
         Input: (pg_len+1, batch_size, 1(top of stack), 64, 64), (batch_size, pg_len+2, num_draws+1), (pg_len)
-        Outputs: (batch_size, pg_len, num_draws)
+        Outputs: (pg_len+1, batch_size, num_draws)
         """
         
         if self.mode==1:
@@ -113,13 +112,12 @@ class CSGmodel(nn.Module):
             enc_f = enc_f.repeat(1, pg_len+1, 1)
 
             y = self.decoder(in_op[:, :-1, :], enc_f)
-            y = y.transpose(0, 1)
             return y
     
     def test(self, x):
         """
         Input: (pg_len+1, batch_size, 1(top of stack), 64, 64), (batch_size, pg_len+2, num_draws+1), (pg_len)
-        Outputs: (batch_size, pg_len, num_draws)
+        Outputs: (batch_size, pg_len+1, num_draws)
         """
 
         if self.mode==1:
