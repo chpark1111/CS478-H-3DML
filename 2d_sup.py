@@ -7,12 +7,13 @@ import tensorboard_logger
 
 from tensorboard_logger import log_value
 from utils import read_config
-from utils.generators.mixed_len_generator import MixedGenerateData, Parser
+from utils.generators.mixed_len_generator import MixedGenerateData
 from utils.scheduler import LearningRate
 from utils.loss import chamfer, sup_loss, cosine_similarity
 from utils.train_utils import to_onehot
 from utils.visualizer import CSGEngine
 from models.model import CSGmodel
+from tqdm import tqdm
 
 #Config parameters, set logging
 config = read_config.Config("2dsup_config.yml")
@@ -96,9 +97,13 @@ prev_test_cd = 1e20
 prev_test_iou = 0
 
 for epoch in range(config.epochs):
-    train_loss = 0.0
-    accuracies = []
+
     net.train()
+    pbar = tqdm(total=config.train_size, leave=False)
+    epoch_str = '' if epoch is None else '[Epoch {}/{}]'.format(
+            str(epoch).zfill(len(str(config.epochs))), config.epochs)
+
+    train_loss = 0.0
 
     for batch_idx in range(config.train_size // config.batch_size):
         optimizer.zero_grad()
@@ -114,24 +119,31 @@ for epoch in range(config.epochs):
 
             one_hot_labels = torch.Tensor(one_hot_labels).cuda()
             data = torch.Tensor(data).cuda()
-            labels = torch.from_numpy(labels, ).cuda()
+            labels = torch.from_numpy(labels).cuda()
 
             outputs = net([data, one_hot_labels, k])
 
             loss_k = (sup_loss(outputs, labels, time_steps=k + 1) / (k + 1)) / types_prog
             loss_k.backward()
 
-            batch_kloss += loss_k
-        
+            batch_kloss += loss_k.item()
+
         optimizer.step()
         train_loss += batch_kloss
-        #log_value('train_loss_batch', batch_kloss.cpu().numpy(), epoch * (config.train_size // config.batch_size) + batch_idx)
 
+        pbar.set_description('{} {} Loss: {:f}'.format(epoch_str, 'Train', batch_kloss))
+        pbar.update(config.batch_size)
+        
+        log_value('train_loss_batch', batch_kloss, epoch * (config.train_size // config.batch_size) + batch_idx)
+
+    pbar.close()
     mean_train_loss = train_loss / (config.train_size // config.batch_size)
-    print('Epoch: %d train_loss: %f'%(epoch, mean_train_loss.cpu().numpy()))
-    log_value('train_loss', mean_train_loss.cpu().numpy(), epoch)
+    #print('Epoch: %d train_loss: %f'%(epoch+1, mean_train_loss))
+    log_value('train_loss', mean_train_loss, epoch)
 
-    net.test()
+    net.eval()
+    pbar = tqdm(total=config.test_size, leave=False)
+
     test_loss = 0.0
     metrics = {"cos": 0, "iou": 0, "cd": 0}
     IOU = 0
@@ -140,7 +152,7 @@ for epoch in range(config.epochs):
 
     for batch_idx in range(config.test_size // config.batch_size):
         parser = CSGEngine(generator.unique_draw, max_len, config.canvas_shape)
-
+        batch_kloss = 0.0
         for k in data_labels_paths.keys():
             data, labels = next(test_gen_objs[k])
             data = data[:, :, 0:1, :, :]
@@ -152,10 +164,11 @@ for epoch in range(config.epochs):
             data = torch.Tensor(data).cuda()
             labels = torch.from_numpy(labels).cuda()
 
-            outputs = net([data, one_hot_labels, k])
-            test_loss += (sup_loss(outputs, labels, time_steps=k + 1) / (k + 1)) / types_prog 
-
-            pred_op = net.test([data, one_hot_labels, max_len])
+            with torch.no_grad():
+                outputs = net([data, one_hot_labels, k])
+                batch_kloss += (sup_loss(outputs, labels, time_steps=k + 1).item() / (k + 1)) / types_prog 
+                pred_op = net.test([data, one_hot_labels, max_len])
+            
             pred_images, correct_prog, pred_prog = parser.get_final_canvas(pred_op, False, True)
 
             iou = np.sum(np.logical_and(pred_images, gt_image), (1, 2)) / np.sum(np.logical_or(pred_images, gt_image), (1, 2))
@@ -166,27 +179,30 @@ for epoch in range(config.epochs):
             COS += np.sum(cosine)
             CD += np.sum(chamfer_dis)
 
+        test_loss += batch_kloss
+
+        pbar.set_description('{} {} Loss: {:f}'.format(epoch_str, 'Test', batch_kloss))
+        pbar.update(config.batch_size)
+
     metrics["iou"] = IOU / config.test_size
     metrics["cos"] = COS / config.test_size
     metrics["cd"] = CD / config.test_size
-    test_loss = test_loss / (config.test_size // (config.batch_size))
+    mean_test_loss = test_loss / (config.test_size // (config.batch_size))
 
     log_value('test_iou', metrics["iou"], epoch)
     log_value('test_cosine', metrics["cos"], epoch)
     log_value('test_CD', metrics["cd"], epoch)
-    log_value('test_loss', test_loss.cpu().numpy(), epoch)
+    log_value('test_loss', mean_test_loss, epoch)
 
     reduce_plat.reduce_on_plateu(metrics["cd"])
 
     logger.info("Epoch {}/{} => train_loss: {}, test_loss: {}, iou: {}, cd: {}, test_mse: {}".format(epoch, 
-                    config.epochs, mean_train_loss.cpu().numpy(), test_loss.cpu().numpy(), 
-                    test_loss,metrics["iou"], metrics["cd"]))
+                    config.epochs, mean_train_loss, mean_test_loss, test_loss,metrics["iou"], metrics["cd"]))
     print("Epoch {}/{} => train_loss: {}, test_loss: {}, iou: {}, cd: {}, test_mse: {}".format(epoch, 
-                    config.epochs, mean_train_loss.cpu().numpy(), test_loss.cpu().numpy(), 
-                    test_loss,metrics["iou"], metrics["cd"]))
+                    config.epochs, mean_train_loss, mean_test_loss, test_loss,metrics["iou"], metrics["cd"]))
 
     if prev_test_cd > metrics["cd"]:
-        logger.info("Saving the Model weights based on CD")
-        print("Saving the Model weights based on CD", flush=True)
+        logger.info("Saving the Model weights based on CD: %f"%(metrics["cd"]))
+        print("Saving the Model weights based on CD: %f"%(metrics["cd"]), flush=True)
         torch.save(net.state_dict(), "trained_models/{}.pth".format(model_name))
         prev_test_cd = metrics["cd"]

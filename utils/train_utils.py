@@ -1,9 +1,12 @@
 import numpy as np
+import torch
 from typing import List
 
 def to_onehot(x, n):
     '''
+    Changes input sequence to one-hot vector
     :params x: batch_size, pg_len + 1
+    :params n: num_draws
     '''
     sz = x.shape
     ret = np.zeros((sz[0], sz[1]+1, n+1))

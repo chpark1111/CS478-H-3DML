@@ -132,7 +132,7 @@ class CSGmodel(nn.Module):
             last_out = in_op[:, 0:1, :]
 
             for i in range(pg_len):
-                y = self.decoder(last_out, enc_f)
+                y = self.decoder([last_out, enc_f])
                 y = torch.squeeze(y)
                 output.append(y)
 
