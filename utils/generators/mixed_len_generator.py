@@ -404,10 +404,10 @@ class Parser:
 
 
 class SimulateStack:
-    def __init__(self, max_len, canvas_shape):
+    def __init__(self, max_stack_size, canvas_shape):
         """
         Takes the program and simulate stack for it.
-        :param max_len: Maximum size of stack
+        :param max_stack_size: Maximum size of stack
         :param canvas_shape: canvas shape, for elements of stack
         """
         self.draw_obj = Draw(canvas_shape=canvas_shape)
@@ -418,7 +418,7 @@ class SimulateStack:
         }
         self.canvas_shape = canvas_shape
         self.op = {"*": self._and, "+": self._union, "-": self._diff}
-        self.stack = PushDownStack(max_len, canvas_shape)
+        self.stack = PushDownStack(max_stack_size, canvas_shape)
         self.stack_t = []
         self.stack.clear()
         self.stack_t.append(self.stack.get_items())

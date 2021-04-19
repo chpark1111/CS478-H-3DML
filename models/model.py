@@ -1,7 +1,7 @@
 import torch
-from torch.functional import Tensor
 import torch.nn  as nn
 import torch.nn.functional as F
+
 from typing import List
 
 class Encoder(nn.Module):
@@ -55,7 +55,7 @@ class Decoder(nn.Module):
 
         self.log_softmax = nn.LogSoftmax(dim = 2)
 
-    def forward(self, x):
+    def forward(self, x:List):
         """
         Input: (batch_size, seq_len, num_draws + 1), (batch_size, seq_len, self.input)
         Outputs: (seq_len, batch_size, num_draws)
@@ -111,13 +111,13 @@ class CSGmodel(nn.Module):
             enc_f = torch.unsqueeze(enc_f, 1)
             enc_f = enc_f.repeat(1, pg_len+1, 1)
 
-            y = self.decoder(in_op[:, :-1, :], enc_f)
+            y = self.decoder([in_op[:, :-1, :], enc_f])
             return y
     
     def test(self, x):
         """
         Input: (pg_len+1, batch_size, 1(top of stack), 64, 64), (batch_size, pg_len+2, num_draws+1), (pg_len)
-        Outputs: (batch_size, pg_len+1, num_draws)
+        Outputs: (pg_len, batch_size, num_draws)
         """
 
         if self.mode==1:
