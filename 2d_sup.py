@@ -138,7 +138,7 @@ for epoch in range(config.epochs):
 
     pbar.close()
     mean_train_loss = train_loss / (config.train_size // config.batch_size)
-    print("Epoch {}/{} => train_loss: {}"%(epoch, config.epochs, mean_train_loss))
+    print("Epoch {}/{} => train_loss: {}".format(epoch, config.epochs, mean_train_loss))
     log_value('train_loss', mean_train_loss, epoch)
 
     net.eval()
