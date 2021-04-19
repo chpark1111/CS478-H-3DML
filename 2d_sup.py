@@ -98,48 +98,48 @@ prev_test_iou = 0
 
 for epoch in range(config.epochs):
 
-    net.train()
-    pbar = tqdm(total=config.train_size, leave=False)
+    # net.train()
+    # pbar = tqdm(total=config.train_size, leave=False)
     epoch_str = '' if epoch is None else '[Epoch {}/{}]'.format(
             str(epoch).zfill(len(str(config.epochs))), config.epochs)
 
-    train_loss = 0.0
+    # train_loss = 0.0
 
-    for batch_idx in range(config.train_size // config.batch_size):
-        optimizer.zero_grad()
-        batch_kloss = 0.0
+    # for batch_idx in range(config.train_size // config.batch_size):
+    #     optimizer.zero_grad()
+    #     batch_kloss = 0.0
         
-        for k in data_labels_paths.keys():
-            # data: length_of_program + 1, batch_size, stack_size, canvas(64, 64)
-            # lables: batch_size, pg_len + 1
-            # len(generator.unique_draw) = num_draws
-            data, labels = next(train_gen_objs[k])
-            data = data[:, :, 0:1, :, :]
-            one_hot_labels = to_onehot(labels, len(generator.unique_draw))
+    #     for k in data_labels_paths.keys():
+    #         # data: length_of_program + 1, batch_size, stack_size, canvas(64, 64)
+    #         # lables: batch_size, pg_len + 1
+    #         # len(generator.unique_draw) = num_draws
+    #         data, labels = next(train_gen_objs[k])
+    #         data = data[:, :, 0:1, :, :]
+    #         one_hot_labels = to_onehot(labels, len(generator.unique_draw))
 
-            one_hot_labels = torch.Tensor(one_hot_labels).cuda()
-            data = torch.Tensor(data).cuda()
-            labels = torch.from_numpy(labels).cuda()
+    #         one_hot_labels = torch.Tensor(one_hot_labels).cuda()
+    #         data = torch.Tensor(data).cuda()
+    #         labels = torch.from_numpy(labels).cuda()
 
-            outputs = net([data, one_hot_labels, k])
+    #         outputs = net([data, one_hot_labels, k])
 
-            loss_k = (sup_loss(outputs, labels, time_steps=k + 1) / (k + 1)) / types_prog
-            loss_k.backward()
+    #         loss_k = (sup_loss(outputs, labels, time_steps=k + 1) / (k + 1)) / types_prog
+    #         loss_k.backward()
 
-            batch_kloss += loss_k.item()
+    #         batch_kloss += loss_k.item()
 
-        optimizer.step()
-        train_loss += batch_kloss
+    #     optimizer.step()
+    #     train_loss += batch_kloss
 
-        pbar.set_description('{} {} Loss: {:f}'.format(epoch_str, 'Train', batch_kloss))
-        pbar.update(config.batch_size)
+    #     pbar.set_description('{} {} Loss: {:f}'.format(epoch_str, 'Train', batch_kloss))
+    #     pbar.update(config.batch_size)
         
-        log_value('train_loss_batch', batch_kloss, epoch * (config.train_size // config.batch_size) + batch_idx)
+    #     log_value('train_loss_batch', batch_kloss, epoch * (config.train_size // config.batch_size) + batch_idx)
 
-    pbar.close()
-    mean_train_loss = train_loss / (config.train_size // config.batch_size)
-    print("Epoch {}/{} => train_loss: {}".format(epoch, config.epochs, mean_train_loss))
-    log_value('train_loss', mean_train_loss, epoch)
+    # pbar.close()
+    # mean_train_loss = train_loss / (config.train_size // config.batch_size)
+    # print("Epoch {}/{} => train_loss: {}".format(epoch, config.epochs, mean_train_loss))
+    # log_value('train_loss', mean_train_loss, epoch)
 
     net.eval()
     pbar = tqdm(total=config.test_size, leave=False)
@@ -174,7 +174,7 @@ for epoch in range(config.epochs):
             iou = np.sum(np.logical_and(pred_images, gt_image), (1, 2)) / np.sum(np.logical_or(pred_images, gt_image), (1, 2))
             cosine = cosine_similarity(pred_images, gt_image)
             chamfer_dis = chamfer(pred_images, gt_image)
-
+            
             IOU += np.sum(iou)
             COS += np.sum(cosine)
             CD += np.sum(chamfer_dis)
@@ -183,6 +183,8 @@ for epoch in range(config.epochs):
 
         pbar.set_description('{} {} Loss: {:f}'.format(epoch_str, 'Test', batch_kloss))
         pbar.update(config.batch_size)
+
+    pbar.close()
 
     metrics["iou"] = IOU / config.test_size
     metrics["cos"] = COS / config.test_size
@@ -196,10 +198,10 @@ for epoch in range(config.epochs):
 
     reduce_plat.reduce_on_plateu(metrics["cd"])
 
-    logger.info("Epoch {}/{} => test_loss: {}, IOU: {}, CD: {}, cosine: {}".format(epoch, config.epochs, 
-                    mean_test_loss, test_loss,metrics["iou"], metrics["cd"], metrics["cos"]))
-    print("Epoch {}/{} => test_loss: {}, IOU: {}, CD: {}, cosine: {}".format(epoch, config.epochs, 
-                    mean_test_loss, test_loss,metrics["iou"], metrics["cd"], metrics["cos"]))
+    logger.info("Epoch {}/{} => test_loss: {:f}, IOU: {:f}%, CD: {:f}, cosine: {:f}".format(epoch, config.epochs, 
+                    mean_test_loss, 100.0*metrics["iou"], metrics["cd"], metrics["cos"]))
+    print("Epoch {}/{} => test_loss: {:f}, IOU: {:f}%, CD: {:f}, cosine: {:f}".format(epoch, config.epochs, 
+                    mean_test_loss, 100.0*metrics["iou"], metrics["cd"], metrics["cos"]))
 
     if prev_test_cd > metrics["cd"]:
         logger.info("Saving the Model weights based on CD: %f"%(metrics["cd"]))

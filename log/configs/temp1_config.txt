@@ -5,7 +5,7 @@ debug = False
 model_path = temp{}
 
 # Whether to load a pretrained model or not
-preload_model = False
+preload_model = True
 
 # path to the pre-trained model
 pretrain_model_path = trained_models/temp1.pth
