@@ -8,8 +8,8 @@ from sklearn.preprocessing import normalize
 def cosine_similarity(arr1, arr2):
     arr1 = np.reshape(arr1, (arr1.shape[0], -1))
     arr2 = np.reshape(arr2, (arr2.shape[0], -1))
-    arr1 = normalize(arr1, "l2", 1)
-    arr2 = normalize(arr2, "l2", 1)
+    arr1 = normalize(arr1, "l2")
+    arr2 = normalize(arr2, "l2")
 
     similarity = np.multiply(arr1, arr2)
     similarity = np.sum(similarity, 1)

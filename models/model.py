@@ -137,10 +137,11 @@ class CSGmodel(nn.Module):
                 output.append(y)
 
                 next_op = torch.max(y, 1, keepdim=True)[1]
-                last_out = (torch.zeros((batch_size, self.num_draws + 1)).scatter_(1, next_op, 1.0)).cuda()
-
+                last_out = (torch.zeros((batch_size, self.num_draws + 1)).cuda().scatter_(1, next_op, 1.0))
+                last_out = torch.unsqueeze(last_out, 1)
             return output
 
     def beam_search(self, x, k=1):
+        
         data, input_op = x
         return x

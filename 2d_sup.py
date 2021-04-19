@@ -138,7 +138,7 @@ for epoch in range(config.epochs):
 
     pbar.close()
     mean_train_loss = train_loss / (config.train_size // config.batch_size)
-    #print('Epoch: %d train_loss: %f'%(epoch+1, mean_train_loss))
+    print("Epoch {}/{} => train_loss: {}"%(epoch, config.epochs, mean_train_loss))
     log_value('train_loss', mean_train_loss, epoch)
 
     net.eval()
@@ -189,17 +189,17 @@ for epoch in range(config.epochs):
     metrics["cd"] = CD / config.test_size
     mean_test_loss = test_loss / (config.test_size // (config.batch_size))
 
-    log_value('test_iou', metrics["iou"], epoch)
+    log_value('test_IOU', metrics["iou"], epoch)
     log_value('test_cosine', metrics["cos"], epoch)
     log_value('test_CD', metrics["cd"], epoch)
     log_value('test_loss', mean_test_loss, epoch)
 
     reduce_plat.reduce_on_plateu(metrics["cd"])
 
-    logger.info("Epoch {}/{} => train_loss: {}, test_loss: {}, iou: {}, cd: {}, test_mse: {}".format(epoch, 
-                    config.epochs, mean_train_loss, mean_test_loss, test_loss,metrics["iou"], metrics["cd"]))
-    print("Epoch {}/{} => train_loss: {}, test_loss: {}, iou: {}, cd: {}, test_mse: {}".format(epoch, 
-                    config.epochs, mean_train_loss, mean_test_loss, test_loss,metrics["iou"], metrics["cd"]))
+    logger.info("Epoch {}/{} => test_loss: {}, IOU: {}, CD: {}, cosine: {}".format(epoch, config.epochs, 
+                    mean_test_loss, test_loss,metrics["iou"], metrics["cd"], metrics["cos"]))
+    print("Epoch {}/{} => test_loss: {}, IOU: {}, CD: {}, cosine: {}".format(epoch, config.epochs, 
+                    mean_test_loss, test_loss,metrics["iou"], metrics["cd"], metrics["cos"]))
 
     if prev_test_cd > metrics["cd"]:
         logger.info("Saving the Model weights based on CD: %f"%(metrics["cd"]))
