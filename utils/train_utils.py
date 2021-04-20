@@ -9,7 +9,7 @@ def to_onehot(x, n):
     :params n: num_draws
     '''
     sz = x.shape
-    ret = np.zeros((sz[0], sz[1]+1, n+1))
+    ret = np.zeros((sz[0], sz[1]+1, n+1), dtype=np.float32)
     ret[:, 0, n] = 1
     for i in range(sz[0]):
         for j in range(sz[1]):

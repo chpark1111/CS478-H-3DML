@@ -53,23 +53,25 @@ class Decoder(nn.Module):
         self.fc2 = nn.Linear(self.hidden_size, self.num_draws)
         self.drop = nn.Dropout(dropout)
 
-        self.log_softmax = nn.LogSoftmax(dim = 2)
+        self.log_softmax = nn.LogSoftmax(dim = 1)
 
     def forward(self, x:List):
         """
-        Input: (batch_size, seq_len, num_draws + 1), (batch_size, seq_len, self.input)
-        Outputs: (seq_len, batch_size, num_draws)
+        Input: (batch_size, 1, num_draws + 1), (batch_size, 1, self.input), (1, batch_size, self.hidden_size)
+        Outputs: (batch_size, num_draws)
         """
-        prev_op, enc_f = x
+        prev_op, enc_f, h = x
+        
         ebd_op = F.relu(self.op_ebmed_fc(prev_op))
 
         inp = torch.cat((self.drop(enc_f), ebd_op), 2)
         inp = inp.transpose(0, 1)
-        h, _ = self.rnn(inp)
-        
-        y = F.relu(self.fc1(self.drop(h)))
+        h, _ = self.rnn(inp, h)
+
+        y = F.relu(self.fc1(self.drop(h[0])))
         y = self.log_softmax(self.fc2(self.drop(y)))
-        return y
+
+        return y, h
 
 class CSGmodel(nn.Module):
     def __init__(self, input_size, hidden_size, mode=1, enc_drop=0.2, 
@@ -107,12 +109,16 @@ class CSGmodel(nn.Module):
 
             enc_f = self.encoder(data[-1, :, :, :, :])
             assert enc_f.shape == (batch_size, 2048)
-
             enc_f = torch.unsqueeze(enc_f, 1)
-            enc_f = enc_f.repeat(1, pg_len+1, 1)
 
-            y = self.decoder([in_op[:, :-1, :], enc_f])
-            return y
+            h = torch.zeros((1, batch_size, self.hidden_size)).cuda()
+            output = []
+            
+            for i in range(pg_len+1):
+                y, h = self.decoder([in_op[:, i:i+1, :], enc_f, h])
+                output.append(y)
+                
+            return output
     
     def test(self, x):
         """
@@ -130,9 +136,10 @@ class CSGmodel(nn.Module):
             enc_f = torch.unsqueeze(enc_f, 1)
             output = []
             last_out = in_op[:, 0:1, :]
+            h = torch.zeros((1, batch_size, self.hidden_size)).cuda()
 
             for i in range(pg_len):
-                y = self.decoder([last_out, enc_f])
+                y, h = self.decoder([last_out, enc_f, h])
                 y = torch.squeeze(y)
                 output.append(y)
 

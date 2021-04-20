@@ -117,8 +117,8 @@ for epoch in range(config.epochs):
             data = data[:, :, 0:1, :, :]
             one_hot_labels = to_onehot(labels, len(generator.unique_draw))
 
-            one_hot_labels = torch.Tensor(one_hot_labels).cuda()
-            data = torch.Tensor(data).cuda()
+            one_hot_labels = torch.from_numpy(one_hot_labels).cuda()
+            data = torch.from_numpy(data).cuda()
             labels = torch.from_numpy(labels).cuda()
 
             outputs = net([data, one_hot_labels, k])
@@ -156,21 +156,21 @@ for epoch in range(config.epochs):
         for k in data_labels_paths.keys():
             data, labels = next(test_gen_objs[k])
             data = data[:, :, 0:1, :, :]
-            gt_image = data[-1, :, 0, :, :].astype(dtype=bool)
-
             one_hot_labels = to_onehot(labels, len(generator.unique_draw))
 
-            one_hot_labels = torch.Tensor(one_hot_labels).cuda()
-            data = torch.Tensor(data).cuda()
-            labels = torch.from_numpy(labels).cuda()
-
             with torch.no_grad():
+                gt_image = data[-1, :, 0, :, :].astype(dtype=bool)
+
+                one_hot_labels = torch.from_numpy(one_hot_labels).cuda()
+                data = torch.from_numpy(data).cuda()
+                labels = torch.from_numpy(labels).cuda()
+
                 outputs = net([data, one_hot_labels, k])
                 batch_kloss += (sup_loss(outputs, labels, time_steps=k + 1).item() / (k + 1)) / types_prog 
+                
                 pred_op = net.test([data, one_hot_labels, max_len])
+                pred_images, correct_prog, pred_prog = parser.get_final_canvas(pred_op, False, True)
             
-            pred_images, correct_prog, pred_prog = parser.get_final_canvas(pred_op, False, True)
-
             iou = np.sum(np.logical_and(pred_images, gt_image), (1, 2)) / np.sum(np.logical_or(pred_images, gt_image), (1, 2))
             cosine = cosine_similarity(pred_images, gt_image)
             chamfer_dis = chamfer(pred_images, gt_image)
@@ -189,6 +189,7 @@ for epoch in range(config.epochs):
     metrics["iou"] = IOU / config.test_size
     metrics["cos"] = COS / config.test_size
     metrics["cd"] = CD / config.test_size
+
     mean_test_loss = test_loss / (config.test_size // (config.batch_size))
 
     log_value('test_IOU', metrics["iou"], epoch)
