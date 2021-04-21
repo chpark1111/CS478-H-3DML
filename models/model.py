@@ -15,10 +15,10 @@ class Encoder(nn.Module):
         self.drop = nn.Dropout(enc_drop)
 
     def forward(self, x):
-        """
+        '''
         Input: (batch_size, in_ch, 64, 64)
         Outputs: (batch_size, out_ch*8*8)
-        """
+        '''
         y = self.max_pool(self.drop(F.relu(self.conv1(x))))
         y = self.max_pool(self.drop(F.relu(self.conv2(y))))
         y = self.max_pool(self.drop(F.relu(self.conv3(y))))
@@ -29,7 +29,7 @@ class Decoder(nn.Module):
     def __init__(self, input_size, hidden_size, mode=1, num_layers=1, 
                     dropout=0.5, num_draws=400):
         super(Decoder, self).__init__()
-        """
+        '''
         :param input_size: input_size (CNN feature size) to rnn
         :param hidden_size: rnn hidden size
         :param mode: Mode of training, RNN, BDRNN or something else
@@ -37,7 +37,7 @@ class Decoder(nn.Module):
         :param dropout: dropout
         :param num_draws: Total number of tokens present in the dataset or total number 
                     of operations to be predicted + a stop symbol = 400 in 2d
-        """
+        '''
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.mode = mode
@@ -53,13 +53,13 @@ class Decoder(nn.Module):
         self.fc2 = nn.Linear(self.hidden_size, self.num_draws)
         self.drop = nn.Dropout(dropout)
 
-        self.log_softmax = nn.LogSoftmax(dim = 1)
+        self.log_softmax = nn.LogSoftmax(dim = 2)
 
     def forward(self, x:List):
-        """
-        Input: (batch_size, 1, num_draws + 1), (batch_size, 1, self.input), (1, batch_size, self.hidden_size)
-        Outputs: (batch_size, num_draws)
-        """
+        '''
+        Input: (batch_size, seq_len, num_draws + 1), (batch_size, seq_len, self.input), (num_layer, batch_size, self.hidden_size)
+        Outputs: (seq_len, batch_size, num_draws)
+        '''
         prev_op, enc_f, h = x
         
         ebd_op = F.relu(self.op_ebmed_fc(prev_op))
@@ -68,7 +68,7 @@ class Decoder(nn.Module):
         inp = inp.transpose(0, 1)
         h, _ = self.rnn(inp, h)
 
-        y = F.relu(self.fc1(self.drop(h[0])))
+        y = F.relu(self.fc1(self.drop(h)))
         y = self.log_softmax(self.fc2(self.drop(y)))
 
         return y, h
@@ -88,10 +88,10 @@ class CSGmodel(nn.Module):
         self.canvas_shape = canvas_shape
 
     def forward(self, x: List):
-        """
+        '''
         Input: (pg_len+1, batch_size, 1(top of stack), 64, 64), (batch_size, pg_len+2, num_draws+1), (pg_len)
         Outputs: (pg_len+1, batch_size, num_draws)
-        """
+        '''
         
         if self.mode==1:
             '''
@@ -100,8 +100,8 @@ class CSGmodel(nn.Module):
             encoder input
             Input: (batch_size, in_ch, 64, 64)
             decoder input
-            Input: (batch_size, seq_len, num_draws + 1), (batch_size, seq_len, self.input_size)
-            
+            Input: (batch_size, seq_len, num_draws + 1), (batch_size, seq_len, 
+                                            self.input), (num_layer, batch_size, self.hidden_size)
             '''
 
             data, in_op, pg_len = x
@@ -110,21 +110,18 @@ class CSGmodel(nn.Module):
             enc_f = self.encoder(data[-1, :, :, :, :])
             assert enc_f.shape == (batch_size, 2048)
             enc_f = torch.unsqueeze(enc_f, 1)
-
-            h = torch.zeros((1, batch_size, self.hidden_size)).cuda()
-            output = []
+            enc_f = enc_f.repeat(1, pg_len+1, 1)
             
-            for i in range(pg_len+1):
-                y, h = self.decoder([in_op[:, i:i+1, :], enc_f, h])
-                output.append(y)
+            h = torch.zeros((1, batch_size, self.hidden_size)).cuda()
+            y, h = self.decoder([in_op[:, :-1, :], enc_f, h])
                 
-            return output
+            return y
     
     def test(self, x):
-        """
+        '''
         Input: (pg_len+1, batch_size, 1(top of stack), 64, 64), (batch_size, pg_len+2, num_draws+1), (pg_len)
         Outputs: (pg_len, batch_size, num_draws)
-        """
+        '''
 
         if self.mode==1:
             data, in_op, pg_len = x

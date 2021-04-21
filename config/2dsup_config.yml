@@ -2,7 +2,7 @@ comment = ""
 debug = False
 
 [train]
-model_path = temp{}
+model_path = temp2-{}
 
 # Whether to load a pretrained model or not
 preload_model = False
