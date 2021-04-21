@@ -1,5 +1,4 @@
 /data/
 __pycache__
-/log/tensorboard/temp1/
 *.pth
 events.out.*
